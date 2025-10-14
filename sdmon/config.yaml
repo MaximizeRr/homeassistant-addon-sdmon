@@ -13,27 +13,6 @@ init: false
 hassio_api: true
 hassio_role: manager
 homeassistant_api: true
-udev: true
-devicetree: true
-kernel_modules: true
-devices:
-  - /dev/mmcblk0
-privileged:
-  - SYS_RAWIO
-  - BPF
-  - CHECKPOINT_RESTORE
-  - DAC_READ_SEARCH
-  - IPC_LOCK
-  - NET_ADMIN
-  - NET_RAW
-  - PERFMON
-  - SYS_ADMIN
-  - SYS_MODULE
-  - SYS_NICE
-  - SYS_PTRACE
-  - SYS_RESOURCE
-  - SYS_TIME
-apparmor: false
 full_access: true
 map:
   - share:rw
