@@ -15,6 +15,7 @@ devices:
 privileged:
   - SYS_RAWIO
 apparmor: false
+full_access: true
 map:
   - share:rw
   - config:rw
