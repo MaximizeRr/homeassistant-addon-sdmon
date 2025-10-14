@@ -9,13 +9,12 @@ arch:
   - armv7
   - aarch64
   - amd64
-  - i386
 init: false
 devices:
   - /dev/mmcblk0
 privileged:
   - SYS_RAWIO
-apparmor: true
+apparmor: false
 map:
   - share:rw
   - config:rw

@@ -19,7 +19,7 @@ RUN \
     && git clone --depth 1 --branch ${SDMON_VERSION} \
     https://github.com/Ognian/sdmon.git /tmp/sdmon \
     && cd /tmp/sdmon \
-    && gcc -static -o sdmon src/*.c \
+    && gcc -static -DVERSION=\"${SDMON_VERSION}\" -o sdmon src/*.c \
     && mv sdmon /usr/local/bin/ \
     && chmod +x /usr/local/bin/sdmon \
     && cd / \
