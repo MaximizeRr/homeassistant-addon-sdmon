@@ -18,6 +18,7 @@ devices:
   - /dev/mmcblk0
 privileged:
   - SYS_RAWIO
+apparmor: false
 map:
   - share:rw
 options:
