@@ -18,9 +18,7 @@ devices:
   - /dev/mmcblk0
 privileged:
   - SYS_RAWIO
-apparmor:
-  - sdmon
-  - sdmon_binary
+apparmor: false
 map:
   - share:rw
 options:
