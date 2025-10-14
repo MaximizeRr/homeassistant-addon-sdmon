@@ -14,30 +14,34 @@ fi
 ha_url="http://supervisor/core/api"
 token="${SUPERVISOR_TOKEN}"
 
-# Function to create/update a sensor
+# Function to create/update a sensor with proper device linkage
 update_sensor() {
     local entity_id="$1"
     local state="$2"
     local attributes="$3"
     local unit="$4"
-    local device_class="$5"
-    local icon="$6"
+    local state_class="$5"
+    local device_class="$6"
+    local icon="$7"
 
     local payload
     payload=$(jq -n \
         --arg state "$state" \
         --arg unit "$unit" \
+        --arg state_class "$state_class" \
         --arg device_class "$device_class" \
         --arg icon "$icon" \
         --argjson attributes "$attributes" \
+        --argjson device_info "$device_info_json" \
         '{
             state: $state,
-            attributes: ($attributes + {
-                unit_of_measurement: $unit,
-                device_class: $device_class,
+            attributes: ($attributes + $device_info + {
+                unit_of_measurement: (if $unit != "" then $unit else null end),
+                state_class: (if $state_class != "" then $state_class else null end),
+                device_class: (if $device_class != "" then $device_class else null end),
                 icon: $icon,
                 friendly_name: $attributes.friendly_name
-            })
+            } | with_entries(select(.value != null and .value != "")))
         }')
 
     response=$(curl -sSL -w "\n%{http_code}" \
@@ -76,6 +80,47 @@ else
     bashio::log.warning "No flashId found, using device as identifier: ${flash_id}"
 fi
 
+# Extract device information for proper device registry integration
+# Per HA docs: https://developers.home-assistant.io/docs/device_registry_index
+manufacturer=$(echo "$json_data" | jq -r '.productMarker // empty' | head -c 20)
+if [ -z "$manufacturer" ]; then
+    manufacturer="Unknown"
+fi
+
+# Extract hardware and firmware versions
+ic_version=$(echo "$json_data" | jq -r '.icVersion // empty')
+fw_version=$(echo "$json_data" | jq -r '.fwVersion // empty')
+hw_version=""
+sw_version=""
+if [ -n "$ic_version" ]; then
+    hw_version=$(echo "$ic_version" | jq -r 'map(.) | join(".")' 2>/dev/null || echo "")
+fi
+if [ -n "$fw_version" ]; then
+    sw_version=$(echo "$fw_version" | jq -r 'map(.) | join(".")' 2>/dev/null || echo "")
+fi
+
+# Create device info object that will be included in all sensors
+# This groups all sensors under the same device in Home Assistant
+device_info_json=$(jq -n \
+    --arg flash_id "$flash_id" \
+    --arg device "$device" \
+    --arg manufacturer "$manufacturer" \
+    --arg model "Industrial SD Card" \
+    --arg hw_version "$hw_version" \
+    --arg sw_version "$sw_version" \
+    --arg version "$version" \
+    '{
+        device: {
+            identifiers: [$flash_id],
+            name: ("SD Card " + $device),
+            manufacturer: $manufacturer,
+            model: $model,
+            hw_version: (if $hw_version != "" then $hw_version else null end),
+            sw_version: (if $sw_version != "" then $sw_version else $version end),
+            via_device: "sdmon_addon"
+        }
+    } | with_entries(select(.value != null and .value != ""))')
+
 # Check if the scan was successful
 if [ "$success" != "true" ]; then
     bashio::log.warning "sdmon scan was not successful, not updating sensors"
@@ -89,8 +134,8 @@ if [ "$success" != "true" ]; then
         flash_id=$(echo "$device" | sed 's/\//_/g')
     fi
     update_sensor "sensor.sdmon_status" "error" \
-        "$(jq -n --arg error "$error_msg" --arg device "$device" --arg uid "$flash_id" '{friendly_name: "SD Card Monitor Status", unique_id: $uid, flash_id: $uid, error: $error, device: $device}')" \
-        "" "" "mdi:alert-circle"
+        "$(jq -n --arg error "$error_msg" --arg uid "$flash_id" '{friendly_name: "SD Monitor Status", unique_id: $uid, error: $error}')" \
+        "" "" "" "mdi:alert-circle"
     exit 0
 fi
 
@@ -109,15 +154,16 @@ else
     health_type="health"
 fi
 
-# Update main health sensor with unique_id in attributes
+# Update main health sensor with proper sensor attributes
+# Per HA docs: state_class for sensors that represent a measurement
 update_sensor "sensor.sdmon_health" "$health_percent" \
-    "$(echo "$json_data" | jq --arg type "$health_type" --arg uid "$flash_id" '{friendly_name: "SD Card Health", unique_id: $uid, card_type: $type, device: .device, version: .version, flash_id: $uid}')" \
-    "%" "" "mdi:sd"
+    "$(jq -n --arg type "$health_type" --arg uid "$flash_id" '{friendly_name: "Health", unique_id: $uid, card_type: $type}')" \
+    "%" "measurement" "" "mdi:sd"
 
-# Update status sensor with unique_id in attributes
+# Update status sensor
 update_sensor "sensor.sdmon_status" "ok" \
-    "$(echo "$json_data" | jq --arg uid "$flash_id" '{friendly_name: "SD Card Monitor Status", unique_id: $uid, device: .device, version: .version, flash_id: $uid, last_update: (now | strftime("%Y-%m-%d %H:%M:%S"))}')" \
-    "" "" "mdi:check-circle"
+    "$(jq -n --arg uid "$flash_id" '{friendly_name: "Status", unique_id: ($uid + "_status"), last_scan: (now | strftime("%Y-%m-%d %H:%M:%S"))}')" \
+    "" "" "" "mdi:check-circle"
 
 # Extract and update specific metrics based on card type
 if [ -n "$endurance" ]; then
@@ -130,40 +176,40 @@ if [ -n "$endurance" ]; then
     bad_blocks=$(echo "$json_data" | jq -r '.laterBadBlockCount // 0')
 
     update_sensor "sensor.sdmon_total_erase_count" "$total_erase" \
-        "$(jq -n --arg uid "$flash_id" '{friendly_name: "SD Card Total Erase Count", unique_id: ($uid + "-total_erase"), flash_id: $uid}')" \
-        "cycles" "" "mdi:counter"
+        "$(jq -n --arg uid "$flash_id" '{friendly_name: "Total Erase Count", unique_id: ($uid + "_total_erase")}')" \
+        "cycles" "total_increasing" "" "mdi:counter"
 
     update_sensor "sensor.sdmon_avg_erase_count" "$avg_erase" \
-        "$(jq -n --arg uid "$flash_id" '{friendly_name: "SD Card Average Erase Count", unique_id: ($uid + "-avg_erase"), flash_id: $uid}')" \
-        "cycles" "" "mdi:counter"
+        "$(jq -n --arg uid "$flash_id" '{friendly_name: "Average Erase Count", unique_id: ($uid + "_avg_erase")}')" \
+        "cycles" "measurement" "" "mdi:counter"
 
     update_sensor "sensor.sdmon_max_erase_count" "$max_erase" \
-        "$(jq -n --arg uid "$flash_id" '{friendly_name: "SD Card Max Erase Count", unique_id: ($uid + "-max_erase"), flash_id: $uid}')" \
-        "cycles" "" "mdi:counter"
+        "$(jq -n --arg uid "$flash_id" '{friendly_name: "Max Erase Count", unique_id: ($uid + "_max_erase")}')" \
+        "cycles" "measurement" "" "mdi:counter"
 
     update_sensor "sensor.sdmon_power_up_count" "$power_up" \
-        "$(jq -n --arg uid "$flash_id" '{friendly_name: "SD Card Power-On Count", unique_id: ($uid + "-power_up"), flash_id: $uid}')" \
-        "cycles" "" "mdi:power"
+        "$(jq -n --arg uid "$flash_id" '{friendly_name: "Power-On Count", unique_id: ($uid + "_power_up")}')" \
+        "cycles" "total_increasing" "" "mdi:power"
 
     update_sensor "sensor.sdmon_abnormal_poweroff_count" "$abnormal_poweroff" \
-        "$(jq -n --arg uid "$flash_id" '{friendly_name: "SD Card Abnormal Power-Off Count", unique_id: ($uid + "-abnormal_poweroff"), flash_id: $uid}')" \
-        "events" "" "mdi:power-plug-off"
+        "$(jq -n --arg uid "$flash_id" '{friendly_name: "Abnormal Power-Off Count", unique_id: ($uid + "_abnormal_poweroff")}')" \
+        "events" "total_increasing" "" "mdi:power-plug-off"
 
     update_sensor "sensor.sdmon_bad_block_count" "$bad_blocks" \
-        "$(jq -n --arg uid "$flash_id" '{friendly_name: "SD Card Bad Block Count", unique_id: ($uid + "-bad_blocks"), flash_id: $uid}')" \
-        "blocks" "" "mdi:close-circle"
+        "$(jq -n --arg uid "$flash_id" '{friendly_name: "Bad Block Count", unique_id: ($uid + "_bad_blocks")}')" \
+        "blocks" "measurement" "" "mdi:close-circle"
 else
     # SanDisk/WD metrics
     manufacture_date=$(echo "$json_data" | jq -r '.manufactureYYMMDD // "unknown"')
     power_on_times=$(echo "$json_data" | jq -r '.powerOnTimes // 0')
 
     update_sensor "sensor.sdmon_manufacture_date" "$manufacture_date" \
-        "$(jq -n --arg uid "$flash_id" '{friendly_name: "SD Card Manufacture Date", unique_id: ($uid + "-manufacture_date"), flash_id: $uid}')" \
-        "" "" "mdi:calendar"
+        "$(jq -n --arg uid "$flash_id" '{friendly_name: "Manufacture Date", unique_id: ($uid + "_manufacture_date")}')" \
+        "" "" "" "mdi:calendar"
 
     update_sensor "sensor.sdmon_power_on_count" "$power_on_times" \
-        "$(jq -n --arg uid "$flash_id" '{friendly_name: "SD Card Power-On Count", unique_id: ($uid + "-power_on"), flash_id: $uid}')" \
-        "cycles" "" "mdi:power"
+        "$(jq -n --arg uid "$flash_id" '{friendly_name: "Power-On Count", unique_id: ($uid + "_power_on")}')" \
+        "cycles" "total_increasing" "" "mdi:power"
 fi
 
 bashio::log.info "Successfully updated Home Assistant sensors"
