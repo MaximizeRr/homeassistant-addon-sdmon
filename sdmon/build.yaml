@@ -1,0 +1,13 @@
+# https://developers.home-assistant.io/docs/add-ons/configuration#add-on-dockerfile
+build_from:
+  aarch64: "ghcr.io/home-assistant/aarch64-base:3.22"
+  amd64: "ghcr.io/home-assistant/amd64-base:3.22"
+  armhf: "ghcr.io/home-assistant/armhf-base:3.22"
+  armv7: "ghcr.io/home-assistant/armv7-base:3.22"
+labels:
+  org.opencontainers.image.title: "Home Assistant Add-on: SD Card Monitor (sdmon)"
+  org.opencontainers.image.description: "Monitor industrial SD card health status using sdmon"
+  org.opencontainers.image.source: "https://github.com/maximizerr/homeassistant-addon-sdmon"
+  org.opencontainers.image.licenses: "GPL-2.0"
+args:
+  SDMON_VERSION: "v0.9.0"

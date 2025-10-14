@@ -1,0 +1,22 @@
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.tar.gz
+build/
+
+# Local development
+.env
+.env.local
+
+# Logs
+*.log
+

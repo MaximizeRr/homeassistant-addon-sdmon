@@ -1,0 +1,32 @@
+# https://developers.home-assistant.io/docs/add-ons/configuration#add-on-config
+name: SD Card Monitor (sdmon)
+version: "1.0.0"
+slug: sdmon
+description: Monitor industrial SD card health status using sdmon
+url: "https://github.com/maximizerr/homeassistant-addon-sdmon"
+arch:
+  - armhf
+  - armv7
+  - aarch64
+  - amd64
+  - i386
+init: false
+devices:
+  - /dev/mmcblk0
+privileged:
+  - SYS_RAWIO
+apparmor: true
+map:
+  - share:rw
+  - config:rw
+options:
+  device: "/dev/mmcblk0"
+  scan_interval: 300
+  add_delay: false
+  output_file: "/share/sdmon_status.json"
+schema:
+  device: str
+  scan_interval: int(60,86400)
+  add_delay: bool
+  output_file: str
+image: "ghcr.io/maximizerr/{arch}-addon-sdmon"

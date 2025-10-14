@@ -1,0 +1,13 @@
+configuration:
+  device:
+    name: Device Path
+    description: Path to the SD card device (e.g., /dev/mmcblk0)
+  scan_interval:
+    name: Scan Interval
+    description: How often to check SD card health, in seconds (60-86400)
+  add_delay:
+    name: Add Delay
+    description: Enable extra delay between CMD56 commands (needed for some Kingston cards)
+  output_file:
+    name: Output File
+    description: Path where JSON output will be written (accessible to Home Assistant)

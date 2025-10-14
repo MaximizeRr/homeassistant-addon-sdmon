@@ -1,16 +1,17 @@
-# Example Home Assistant add-on repository
+# Home Assistant Add-on Repository: SD Card Monitor
 
-This repository can be used as a "blueprint" for add-on development to help you get started.
+![Project Maintenance][maintenance-shield]
+[![License][license-shield]](LICENSE)
 
-Add-on documentation: <https://developers.home-assistant.io/docs/add-ons>
+## About
 
-[![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fhome-assistant%2Faddons-example)
+This repository contains a Home Assistant add-on for monitoring industrial SD card health using [sdmon](https://github.com/Ognian/sdmon).
 
 ## Add-ons
 
-This repository contains the following add-ons
+This repository contains the following add-on:
 
-### [Example add-on](./example)
+### [SD Card Monitor (sdmon)](./sdmon)
 
 ![Supports aarch64 Architecture][aarch64-shield]
 ![Supports amd64 Architecture][amd64-shield]
@@ -18,29 +19,54 @@ This repository contains the following add-ons
 ![Supports armv7 Architecture][armv7-shield]
 ![Supports i386 Architecture][i386-shield]
 
-_Example add-on to use as a blueprint for new add-ons._
+Monitor the health status of industrial-grade SD cards directly from Home Assistant. Supports Apacer, Kingston, SanDisk, and Western Digital industrial SD cards.
 
-<!--
+## Installation
 
-Notes to developers after forking or using the github template feature:
-- While developing comment out the 'image' key from 'example/config.yaml' to make the supervisor build the addon
-  - Remember to put this back when pushing up your changes.
-- When you merge to the 'main' branch of your repository a new build will be triggered.
-  - Make sure you adjust the 'version' key in 'example/config.yaml' when you do that.
-  - Make sure you update 'example/CHANGELOG.md' when you do that.
-  - The first time this runs you might need to adjust the image configuration on github container registry to make it public
-  - You may also need to adjust the github Actions configuration (Settings > Actions > General > Workflow > Read & Write)
-- Adjust the 'image' key in 'example/config.yaml' so it points to your username instead of 'home-assistant'.
-  - This is where the build images will be published to.
-- Rename the example directory.
-  - The 'slug' key in 'example/config.yaml' should match the directory name.
-- Adjust all keys/url's that points to 'home-assistant' to now point to your user/fork.
-- Share your repository on the forums https://community.home-assistant.io/c/projects/9
-- Do awesome stuff!
- -->
+To use this add-on repository, add the following URL to your Home Assistant add-on store:
+
+```
+https://github.com/maximizerr/homeassistant-addon-sdmon
+```
+
+### Adding the Repository
+
+1. Open your Home Assistant instance
+2. Navigate to **Supervisor** → **Add-on Store**
+3. Click the **⋮** menu in the top right
+4. Select **Repositories**
+5. Add this repository URL
+6. Click **Add**
+
+The add-on will now appear in your add-on store.
+
+## Add-ons Provided
+
+- **SD Card Monitor (sdmon)** - Monitor industrial SD card health status
+
+## Support
+
+For issues and questions:
+
+- [Open an issue on GitHub][issues]
+- Check the [sdmon documentation][sdmon]
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the GNU General Public License v2.0 - see the [LICENSE](LICENSE) file for details.
+
+The sdmon software is also licensed under GPL-2.0, Copyright (c) 2018 - today, OGI-IT, Ognian Tschakalov and contributors.
 
 [aarch64-shield]: https://img.shields.io/badge/aarch64-yes-green.svg
 [amd64-shield]: https://img.shields.io/badge/amd64-yes-green.svg
 [armhf-shield]: https://img.shields.io/badge/armhf-yes-green.svg
 [armv7-shield]: https://img.shields.io/badge/armv7-yes-green.svg
 [i386-shield]: https://img.shields.io/badge/i386-yes-green.svg
+[issues]: https://github.com/maximizerr/homeassistant-addon-sdmon/issues
+[license-shield]: https://img.shields.io/github/license/maximizerr/homeassistant-addon-sdmon.svg
+[maintenance-shield]: https://img.shields.io/maintenance/yes/2025.svg
+[sdmon]: https://github.com/Ognian/sdmon

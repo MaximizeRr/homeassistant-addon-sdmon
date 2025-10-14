@@ -1,0 +1,76 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Start the sdmon service
+# s6-overlay docs: https://github.com/just-containers/s6-overlay
+# ==============================================================================
+
+bashio::log.info "Starting SD Card Monitor (sdmon)..."
+
+# Declare variables
+declare device
+declare scan_interval
+declare add_delay
+declare output_file
+declare delay_arg
+
+# Get configuration options
+device=$(bashio::config 'device')
+scan_interval=$(bashio::config 'scan_interval')
+add_delay=$(bashio::config 'add_delay')
+output_file=$(bashio::config 'output_file')
+
+# Check if device exists
+if [[ ! -e "${device}" ]]; then
+    bashio::log.error "Device ${device} not found!"
+    bashio::log.error "Make sure the device is accessible and specified in config.yaml"
+    exit 1
+fi
+
+bashio::log.info "Monitoring device: ${device}"
+bashio::log.info "Scan interval: ${scan_interval} seconds"
+bashio::log.info "Output file: ${output_file}"
+
+# Build delay argument if needed
+delay_arg=""
+if bashio::var.true "${add_delay}"; then
+    delay_arg="-a"
+    bashio::log.info "Using add_delay option (-a)"
+fi
+
+# Main monitoring loop
+while true; do
+    bashio::log.info "Running sdmon scan..."
+    
+    # Run sdmon and capture output
+    if output=$(/usr/local/bin/sdmon "${device}" ${delay_arg} 2>&1); then
+        # Write output to file
+        echo "${output}" > "${output_file}"
+        
+        # Log success status from JSON
+        if echo "${output}" | grep -q '"success":true'; then
+            bashio::log.info "SD card health check successful"
+            
+            # Extract and log key health metrics if available
+            if health=$(echo "${output}" | grep -o '"enduranceRemainLifePercent":[0-9.]*' | cut -d: -f2); then
+                bashio::log.info "Endurance remaining: ${health}%"
+            elif health=$(echo "${output}" | grep -o '"healthStatusPercentUsed":[0-9]*' | cut -d: -f2); then
+                bashio::log.info "Health status: $((100 - health))% remaining"
+            fi
+        else
+            bashio::log.warning "SD card health check completed but no success flag found"
+            if echo "${output}" | grep -q 'error'; then
+                error=$(echo "${output}" | grep -o '"error[^"]*":"[^"]*"' | head -1)
+                bashio::log.warning "Error reported: ${error}"
+            fi
+        fi
+    else
+        bashio::log.error "Failed to run sdmon: ${output}"
+        # Write error output to file as well
+        echo "${output}" > "${output_file}"
+    fi
+    
+    # Wait for the next scan
+    bashio::log.info "Next scan in ${scan_interval} seconds..."
+    sleep "${scan_interval}"
+done
+

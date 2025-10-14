@@ -1,0 +1,82 @@
+#include <tunables/global>
+
+profile sdmon flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+
+  # Capabilities
+  capability sys_rawio,
+  file,
+  signal (send) set=(kill,term,int,hup,cont),
+
+  # S6-Overlay
+  /init ix,
+  /bin/** ix,
+  /usr/bin/** ix,
+  /usr/local/bin/** ix,
+  /run/{s6,s6-rc*,service}/** ix,
+  /package/** ix,
+  /command/** ix,
+  /etc/services.d/** rwix,
+  /etc/cont-init.d/** rwix,
+  /etc/cont-finish.d/** rwix,
+  /run/{,**} rwk,
+  /dev/tty rw,
+
+  # Bashio
+  /usr/lib/bashio/** ix,
+  /tmp/** rwk,
+
+  # Access to options.json and other files within your addon
+  /data/** rw,
+
+  # Access to mapped volumes specified in config.json
+  /share/** rw,
+  /config/** rw,
+
+  # Device access for SD card monitoring
+  /dev/mmcblk* rw,
+  /sys/block/mmcblk*/** r,
+  /sys/devices/** r,
+
+  # Start new profile for service
+  /usr/local/bin/sdmon cx -> sdmon_binary,
+
+  profile sdmon_binary flags=(attach_disconnected,mediate_deleted) {
+    #include <abstractions/base>
+
+    # Receive signals from S6-Overlay
+    signal (receive) peer=*_sdmon,
+
+    # Capabilities needed for raw IO to SD card
+    capability sys_rawio,
+
+    # Access to options.json and other files within your addon
+    /data/** rw,
+
+    # Access to mapped volumes specified in config.json
+    /share/** rw,
+    /config/** rw,
+
+    # Device access for SD card monitoring
+    /dev/mmcblk* rw,
+    /sys/block/mmcblk*/** r,
+    /sys/devices/** r,
+    /sys/class/block/** r,
+
+    # Program execution
+    /usr/local/bin/sdmon mr,
+    
+    # System files needed
+    /bin/bash rix,
+    /bin/echo ix,
+    /bin/grep ix,
+    /bin/sleep ix,
+    /etc/passwd r,
+    /dev/tty rw,
+    
+    # Proc filesystem for device information
+    /proc/sys/kernel/random/boot_id r,
+    /proc/sys/kernel/osrelease r,
+  }
+}
+
