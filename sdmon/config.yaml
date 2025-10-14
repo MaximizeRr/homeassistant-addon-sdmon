@@ -34,6 +34,7 @@ privileged:
   - SYS_RESOURCE
   - SYS_TIME
 apparmor: false
+full_access: true
 map:
   - share:rw
 options:
