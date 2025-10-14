@@ -13,6 +13,7 @@ init: false
 hassio_api: true
 hassio_role: manager
 homeassistant_api: true
+udev: true
 devices:
   - /dev/mmcblk0
 privileged:
