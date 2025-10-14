@@ -50,11 +50,12 @@ while true; do
         if echo "${output}" | grep -q '"success":true'; then
             bashio::log.info "SD card health check successful"
 
-            # Extract and log key health metrics if available
-            if health=$(echo "${output}" | grep -o '"enduranceRemainLifePercent":[0-9.]*' | cut -d: -f2); then
+            # Extract and log key health metrics if available (using jq for reliable JSON parsing)
+            if health=$(echo "${output}" | jq -r '.enduranceRemainLifePercent // empty' 2>/dev/null) && [ -n "$health" ]; then
                 bashio::log.info "Endurance remaining: ${health}%"
-            elif health=$(echo "${output}" | grep -o '"healthStatusPercentUsed":[0-9]*' | cut -d: -f2); then
-                bashio::log.info "Health status: $((100 - health))% remaining"
+            elif health=$(echo "${output}" | jq -r '.healthStatusPercentUsed // empty' 2>/dev/null) && [ -n "$health" ]; then
+                remaining=$(echo "100 - $health" | bc)
+                bashio::log.info "Health status: ${remaining}% remaining"
             fi
         else
             bashio::log.warning "SD card health check completed but no success flag found"
