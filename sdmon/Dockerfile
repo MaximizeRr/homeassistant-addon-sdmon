@@ -8,6 +8,12 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # Build arguments
 ARG SDMON_VERSION
 
+# Install runtime dependencies
+RUN apk add --no-cache \
+    curl \
+    jq \
+    bc
+
 # Install build dependencies and build sdmon
 RUN \
     apk add --no-cache --virtual .build-dependencies \
@@ -28,6 +34,9 @@ RUN \
 
 # Copy root filesystem
 COPY rootfs /
+
+# Ensure scripts are executable
+RUN chmod +x /usr/local/bin/update-ha-sensors.sh
 
 # Build arguments
 ARG BUILD_ARCH

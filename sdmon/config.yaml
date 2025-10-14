@@ -10,11 +10,13 @@ arch:
   - aarch64
   - amd64
 init: false
+hassio_api: true
+homeassistant_api: true
 devices:
   - /dev/mmcblk0
 privileged:
   - SYS_RAWIO
-apparmor: "sdmon_binary"
+apparmor: "sdmon"
 map:
   - share:rw
   - config:rw

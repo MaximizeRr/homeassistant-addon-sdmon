@@ -57,6 +57,7 @@ output_file: "/share/sdmon_status.json"
 The path where the health status JSON will be written. The default location (`/share/`) is accessible to Home Assistant and other add-ons.
 
 You can change this to:
+
 - `/share/sdmon_status.json` (default, accessible system-wide)
 - `/config/sdmon_status.json` (stored with your configuration)
 
@@ -82,6 +83,7 @@ The add-on writes a JSON file with health information. The format depends on you
 ```
 
 Key fields:
+
 - `enduranceRemainLifePercent` - Percentage of life remaining (100% = new, 0% = worn out)
 - `totalEraseCount` - Total number of erase operations
 - `powerUpCount` - Number of times the card has been powered on
@@ -101,22 +103,50 @@ Key fields:
 ```
 
 Key fields:
+
 - `healthStatusPercentUsed` - Percentage of life used (0% = new, 100% = worn out)
 - `manufactureYYMMDD` - Manufacturing date
 - `powerOnTimes` - Number of power-on cycles
 
 ### Integrating with Home Assistant
 
-To use the health data in Home Assistant, you can create sensors using the `file` platform or `command_line` platform.
+**No configuration needed!** The add-on automatically creates sensors in Home Assistant.
 
-#### Method 1: File Sensor (Recommended)
+#### Automatic Sensors
 
-Add to your `configuration.yaml`:
+Once the add-on starts, it will automatically create sensors based on your SD card type:
+
+##### Common Sensors (all card types)
+
+- **`sensor.sdmon_health`** - Overall SD card health percentage (0-100%)
+- **`sensor.sdmon_status`** - Monitoring status (ok/error)
+
+##### Apacer/Kingston Cards
+
+These cards provide detailed endurance metrics:
+
+- **`sensor.sdmon_total_erase_count`** - Total erase cycles performed
+- **`sensor.sdmon_avg_erase_count`** - Average erase count per block
+- **`sensor.sdmon_max_erase_count`** - Maximum erase count of any block
+- **`sensor.sdmon_power_up_count`** - Number of power-on cycles
+- **`sensor.sdmon_abnormal_poweroff_count`** - Abnormal power-off events detected
+- **`sensor.sdmon_bad_block_count`** - Count of bad blocks
+
+##### SanDisk/Western Digital Cards
+
+These cards provide different metrics:
+
+- **`sensor.sdmon_manufacture_date`** - Manufacturing date (YYMMDD format)
+- **`sensor.sdmon_power_on_count`** - Number of power-on cycles
+
+#### Advanced: Manual File Sensor (Optional)
+
+If you prefer to create custom sensors, the data is also available in a JSON file. Add to your `configuration.yaml`:
 
 ```yaml
 sensor:
   - platform: file
-    name: SD Card Health
+    name: SD Card Health Custom
     file_path: /share/sdmon_status.json
     value_template: >
       {% if value_json.enduranceRemainLifePercent is defined %}
@@ -126,55 +156,7 @@ sensor:
       {% else %}
         unknown
       {% endif %}
-    unit_of_measurement: '%'
-    
-  - platform: file
-    name: SD Card Total Erase Count
-    file_path: /share/sdmon_status.json
-    value_template: "{{ value_json.totalEraseCount | default('unknown') }}"
-    
-  - platform: file
-    name: SD Card Power On Count
-    file_path: /share/sdmon_status.json
-    value_template: >
-      {% if value_json.powerUpCount is defined %}
-        {{ value_json.powerUpCount }}
-      {% elif value_json.powerOnTimes is defined %}
-        {{ value_json.powerOnTimes }}
-      {% else %}
-        unknown
-      {% endif %}
-```
-
-#### Method 2: Template Sensor
-
-For more advanced parsing and multiple attributes:
-
-```yaml
-sensor:
-  - platform: template
-    sensors:
-      sd_card_health:
-        friendly_name: "SD Card Health"
-        unit_of_measurement: '%'
-        value_template: >
-          {% set data = states('sensor.sdmon_raw_data') | from_json %}
-          {% if data.enduranceRemainLifePercent is defined %}
-            {{ data.enduranceRemainLifePercent }}
-          {% elif data.healthStatusPercentUsed is defined %}
-            {{ 100 - data.healthStatusPercentUsed }}
-          {% else %}
-            unknown
-          {% endif %}
-        icon_template: >
-          {% set health = state_attr('sensor.sd_card_health', 'value') | float(0) %}
-          {% if health > 80 %}
-            mdi:sd
-          {% elif health > 50 %}
-            mdi:sd-card-alert
-          {% else %}
-            mdi:sd-card-alert-outline
-          {% endif %}
+    unit_of_measurement: "%"
 ```
 
 ### Creating Alerts
@@ -186,13 +168,26 @@ automation:
   - alias: "SD Card Health Low Alert"
     trigger:
       - platform: numeric_state
-        entity_id: sensor.sd_card_health
+        entity_id: sensor.sdmon_health
         below: 20
     action:
       - service: notify.notify
         data:
           title: "⚠️ SD Card Health Warning"
           message: "SD card health is below 20%. Consider replacing soon."
+
+  - alias: "SD Card Abnormal Power-Off Alert"
+    trigger:
+      - platform: state
+        entity_id: sensor.sdmon_abnormal_poweroff_count
+    condition:
+      - condition: template
+        value_template: "{{ trigger.to_state.state | int > trigger.from_state.state | int }}"
+    action:
+      - service: notify.notify
+        data:
+          title: "⚠️ SD Card Warning"
+          message: "Abnormal power-off detected. Ensure proper shutdown procedures."
 ```
 
 ### Troubleshooting
@@ -217,16 +212,17 @@ automation:
 
 #### No data in Home Assistant sensors
 
-- Verify the output file path is correct
-- Check that the file exists and has recent data
-- Ensure your sensor configuration is reading the correct file path
-- Restart Home Assistant after adding sensor configuration
+- Check the add-on logs to see if sensors are being updated successfully
+- Verify that the add-on has `homeassistant_api: true` enabled in config
+- The sensors should appear automatically after the first successful scan
+- If sensors don't appear, restart the add-on
+- Check for any API errors in the add-on logs
 
 ## Support
 
 For more information:
+
 - [sdmon GitHub repository](https://github.com/Ognian/sdmon)
 - [Home Assistant Add-on Development](https://developers.home-assistant.io/docs/add-ons)
 
 If you encounter issues, please check the add-on logs first, then [open an issue](https://github.com/maximizerr/homeassistant-addon-sdmon/issues).
-

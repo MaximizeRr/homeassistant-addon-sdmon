@@ -26,6 +26,10 @@ profile sdmon flags=(attach_disconnected,mediate_deleted) {
   /usr/lib/bashio/** ix,
   /tmp/** rwk,
 
+  # Networking for Home Assistant API
+  network inet stream,
+  network inet6 stream,
+
   # Access to options.json and other files within your addon
   /data/** rw,
 
@@ -37,6 +41,9 @@ profile sdmon flags=(attach_disconnected,mediate_deleted) {
   /dev/mmcblk* rw,
   /sys/block/mmcblk*/** r,
   /sys/devices/** r,
+
+  # Home Assistant sensor update script
+  /usr/local/bin/update-ha-sensors.sh rix,
 
   # Start new profile for service
   /usr/local/bin/sdmon cx -> sdmon_binary,
@@ -65,7 +72,7 @@ profile sdmon flags=(attach_disconnected,mediate_deleted) {
 
     # Program execution
     /usr/local/bin/sdmon mr,
-    
+
     # System files needed
     /bin/bash rix,
     /bin/echo ix,
@@ -73,7 +80,7 @@ profile sdmon flags=(attach_disconnected,mediate_deleted) {
     /bin/sleep ix,
     /etc/passwd r,
     /dev/tty rw,
-    
+
     # Proc filesystem for device information
     /proc/sys/kernel/random/boot_id r,
     /proc/sys/kernel/osrelease r,

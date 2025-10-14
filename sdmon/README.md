@@ -6,7 +6,6 @@ Monitor the health status of industrial-grade SD cards using sdmon.
 ![Supports amd64 Architecture][amd64-shield]
 ![Supports armhf Architecture][armhf-shield]
 ![Supports armv7 Architecture][armv7-shield]
-![Supports i386 Architecture][i386-shield]
 
 ## About
 
@@ -65,25 +64,30 @@ Where to write the health status JSON output. Default is `/share/sdmon_status.js
 
 ## Integration with Home Assistant
 
-The health status is written to a JSON file (default: `/share/sdmon_status.json`) that can be read by Home Assistant using the `file` sensor platform or a custom sensor.
+**Sensors are automatically created!** No manual configuration is needed.
 
-Example sensor configuration in `configuration.yaml`:
+The add-on automatically creates the following sensors in Home Assistant:
 
-```yaml
-sensor:
-  - platform: file
-    name: SD Card Health
-    file_path: /share/sdmon_status.json
-    value_template: >
-      {% if value_json.enduranceRemainLifePercent is defined %}
-        {{ value_json.enduranceRemainLifePercent }}
-      {% elif value_json.healthStatusPercentUsed is defined %}
-        {{ 100 - value_json.healthStatusPercentUsed }}
-      {% else %}
-        unknown
-      {% endif %}
-    unit_of_measurement: '%'
-```
+### Common Sensors (all card types)
+
+- `sensor.sdmon_health` - Overall SD card health percentage
+- `sensor.sdmon_status` - Monitoring status (ok/error)
+
+### Apacer/Kingston Cards
+
+- `sensor.sdmon_total_erase_count` - Total erase cycles
+- `sensor.sdmon_avg_erase_count` - Average erase count
+- `sensor.sdmon_max_erase_count` - Maximum erase count
+- `sensor.sdmon_power_up_count` - Number of power-on cycles
+- `sensor.sdmon_abnormal_poweroff_count` - Abnormal power-off events
+- `sensor.sdmon_bad_block_count` - Bad block count
+
+### SanDisk/Western Digital Cards
+
+- `sensor.sdmon_manufacture_date` - Manufacturing date
+- `sensor.sdmon_power_on_count` - Number of power-on cycles
+
+The health status is also written to a JSON file (default: `/share/sdmon_status.json`) for advanced use cases or custom integrations.
 
 ## Support
 
@@ -98,4 +102,3 @@ For issues with sdmon itself, please see the [sdmon repository][sdmon].
 [i386-shield]: https://img.shields.io/badge/i386-yes-green.svg
 [issues]: https://github.com/maximizerr/homeassistant-addon-sdmon/issues
 [sdmon]: https://github.com/Ognian/sdmon
-

@@ -40,16 +40,16 @@ fi
 # Main monitoring loop
 while true; do
     bashio::log.info "Running sdmon scan..."
-    
+
     # Run sdmon and capture output
     if output=$(/usr/local/bin/sdmon "${device}" ${delay_arg} 2>&1); then
         # Write output to file
         echo "${output}" > "${output_file}"
-        
+
         # Log success status from JSON
         if echo "${output}" | grep -q '"success":true'; then
             bashio::log.info "SD card health check successful"
-            
+
             # Extract and log key health metrics if available
             if health=$(echo "${output}" | grep -o '"enduranceRemainLifePercent":[0-9.]*' | cut -d: -f2); then
                 bashio::log.info "Endurance remaining: ${health}%"
@@ -63,12 +63,23 @@ while true; do
                 bashio::log.warning "Error reported: ${error}"
             fi
         fi
+
+        # Push sensor data to Home Assistant
+        bashio::log.info "Updating Home Assistant sensors..."
+        if echo "${output}" | /usr/local/bin/update-ha-sensors.sh; then
+            bashio::log.info "Home Assistant sensors updated successfully"
+        else
+            bashio::log.warning "Failed to update Home Assistant sensors"
+        fi
     else
         bashio::log.error "Failed to run sdmon: ${output}"
         # Write error output to file as well
         echo "${output}" > "${output_file}"
+
+        # Try to update sensor with error status
+        echo "${output}" | /usr/local/bin/update-ha-sensors.sh || true
     fi
-    
+
     # Wait for the next scan
     bashio::log.info "Next scan in ${scan_interval} seconds..."
     sleep "${scan_interval}"
