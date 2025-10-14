@@ -1,6 +1,6 @@
 # https://developers.home-assistant.io/docs/add-ons/configuration#add-on-config
 name: SD Card Monitor (sdmon)
-version: "1.1.4"
+version: "1.1.5"
 slug: sdmon
 description: Monitor industrial SD card health status using sdmon
 url: "https://github.com/maximizerr/homeassistant-addon-sdmon"
@@ -13,8 +13,10 @@ init: false
 hassio_api: true
 hassio_role: manager
 homeassistant_api: true
-full_access: true
-apparmor: false
+devices:
+  - /dev/mmcblk0
+privileged:
+  - SYS_RAWIO
 map:
   - share:rw
 options:

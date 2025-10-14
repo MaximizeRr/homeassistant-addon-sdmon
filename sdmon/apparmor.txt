@@ -1,10 +1,16 @@
+# Last Modified: Oct 14, 2025
+# AppArmor profile for sdmon add-on
+#
+# This profile is designed to confine the sdmon add-on, which reads
+# health information from SD cards using low-level ioctl commands.
+#
+
 #include <tunables/global>
 
 profile sdmon flags=(attach_disconnected,mediate_deleted) {
   #include <abstractions/base>
 
   # Capabilities
-  capability sys_rawio,
   file,
   signal (send) set=(kill,term,int,hup,cont),
 
@@ -35,26 +41,27 @@ profile sdmon flags=(attach_disconnected,mediate_deleted) {
 
   # Access to mapped volumes specified in config.json
   /share/** rw,
-  /config/** rw,
 
   # Device access for SD card monitoring
-  /dev/mmcblk* rw,
+  /dev/mmcblk[0-9]* rw,
   /sys/block/mmcblk*/** r,
   /sys/devices/** r,
 
   # Home Assistant sensor update script
   /usr/local/bin/update-ha-sensors.sh rix,
 
-  # Start new profile for service
+  # Start new profile for sdmon binary
   /usr/local/bin/sdmon cx -> sdmon_binary,
 
-  profile sdmon_binary flags=(attach_disconnected,mediate_deleted) {
+  profile sdmon flags=(attach_disconnected,mediate_deleted) {
     #include <abstractions/base>
 
     # Receive signals from S6-Overlay
     signal (receive) peer=*_sdmon,
 
-    # Capabilities needed for raw IO to SD card
+    # This is the most critical permission. The program uses the
+    # ioctl(MMC_IOC_CMD) system call to send raw commands directly
+    # to the SD card controller. This requires CAP_SYS_RAWIO.
     capability sys_rawio,
 
     # Access to options.json and other files within your addon
@@ -62,16 +69,18 @@ profile sdmon flags=(attach_disconnected,mediate_deleted) {
 
     # Access to mapped volumes specified in config.json
     /share/** rw,
-    /config/** rw,
 
-    # Device access for SD card monitoring
-    /dev/mmcblk* rw,
+    # The executable needs to be read and mapped into memory
+    /usr/local/bin/sdmon mr,
+
+    # The program needs read and write access to the mmc block device
+    # Using a wildcard allows it to work with any SD card reader
+    /dev/mmcblk[0-9]* rw,
+
+    # System information needed for SD card detection
     /sys/block/mmcblk*/** r,
     /sys/devices/** r,
     /sys/class/block/** r,
-
-    # Program execution
-    /usr/local/bin/sdmon mr,
 
     # System files needed
     /bin/bash rix,
@@ -86,4 +95,3 @@ profile sdmon flags=(attach_disconnected,mediate_deleted) {
     /proc/sys/kernel/osrelease r,
   }
 }
-
