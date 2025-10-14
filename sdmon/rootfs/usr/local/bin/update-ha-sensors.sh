@@ -63,14 +63,33 @@ success=$(echo "$json_data" | jq -r '.success // false')
 device=$(echo "$json_data" | jq -r '.device // "unknown"')
 version=$(echo "$json_data" | jq -r '.version // "unknown"')
 
+# Extract and format flashId as unique identifier
+# flashId is burned into the device and serves as a unique identifier per the HA entity registry docs
+flash_id_array=$(echo "$json_data" | jq -r '.flashId // empty')
+if [ -n "$flash_id_array" ]; then
+    # Convert array like ["0x98","0x3c",...] to string like "983c98b3f6e3081e00"
+    flash_id=$(echo "$flash_id_array" | jq -r 'map(ltrimstr("0x")) | join("")' | tr '[:upper:]' '[:lower:]')
+    bashio::log.info "SD Card Flash ID: ${flash_id}"
+else
+    # Fallback to device name if no flashId available
+    flash_id=$(echo "$device" | sed 's/\//_/g')
+    bashio::log.warning "No flashId found, using device as identifier: ${flash_id}"
+fi
+
 # Check if the scan was successful
 if [ "$success" != "true" ]; then
     bashio::log.warning "sdmon scan was not successful, not updating sensors"
 
-    # Update status sensor to show error
+    # Update status sensor to show error (extract flashId even on error if available)
     error_msg=$(echo "$json_data" | jq -r '.error // "Unknown error"')
+    flash_id_error=$(echo "$json_data" | jq -r '.flashId // empty')
+    if [ -n "$flash_id_error" ]; then
+        flash_id=$(echo "$flash_id_error" | jq -r 'map(ltrimstr("0x")) | join("")' | tr '[:upper:]' '[:lower:]')
+    else
+        flash_id=$(echo "$device" | sed 's/\//_/g')
+    fi
     update_sensor "sensor.sdmon_status" "error" \
-        "$(jq -n --arg error "$error_msg" --arg device "$device" '{friendly_name: "SD Card Monitor Status", error: $error, device: $device}')" \
+        "$(jq -n --arg error "$error_msg" --arg device "$device" --arg uid "$flash_id" '{friendly_name: "SD Card Monitor Status", unique_id: $uid, flash_id: $uid, error: $error, device: $device}')" \
         "" "" "mdi:alert-circle"
     exit 0
 fi
@@ -90,14 +109,14 @@ else
     health_type="health"
 fi
 
-# Update main health sensor
+# Update main health sensor with unique_id in attributes
 update_sensor "sensor.sdmon_health" "$health_percent" \
-    "$(echo "$json_data" | jq --arg type "$health_type" '{friendly_name: "SD Card Health", card_type: $type, device: .device, version: .version}')" \
+    "$(echo "$json_data" | jq --arg type "$health_type" --arg uid "$flash_id" '{friendly_name: "SD Card Health", unique_id: $uid, card_type: $type, device: .device, version: .version, flash_id: $uid}')" \
     "%" "" "mdi:sd"
 
-# Update status sensor
+# Update status sensor with unique_id in attributes
 update_sensor "sensor.sdmon_status" "ok" \
-    "$(echo "$json_data" | jq '{friendly_name: "SD Card Monitor Status", device: .device, version: .version, last_update: (now | strftime("%Y-%m-%d %H:%M:%S"))}')" \
+    "$(echo "$json_data" | jq --arg uid "$flash_id" '{friendly_name: "SD Card Monitor Status", unique_id: $uid, device: .device, version: .version, flash_id: $uid, last_update: (now | strftime("%Y-%m-%d %H:%M:%S"))}')" \
     "" "" "mdi:check-circle"
 
 # Extract and update specific metrics based on card type
@@ -111,27 +130,27 @@ if [ -n "$endurance" ]; then
     bad_blocks=$(echo "$json_data" | jq -r '.laterBadBlockCount // 0')
 
     update_sensor "sensor.sdmon_total_erase_count" "$total_erase" \
-        "$(jq -n '{friendly_name: "SD Card Total Erase Count"}')" \
+        "$(jq -n --arg uid "$flash_id" '{friendly_name: "SD Card Total Erase Count", unique_id: ($uid + "-total_erase"), flash_id: $uid}')" \
         "cycles" "" "mdi:counter"
 
     update_sensor "sensor.sdmon_avg_erase_count" "$avg_erase" \
-        "$(jq -n '{friendly_name: "SD Card Average Erase Count"}')" \
+        "$(jq -n --arg uid "$flash_id" '{friendly_name: "SD Card Average Erase Count", unique_id: ($uid + "-avg_erase"), flash_id: $uid}')" \
         "cycles" "" "mdi:counter"
 
     update_sensor "sensor.sdmon_max_erase_count" "$max_erase" \
-        "$(jq -n '{friendly_name: "SD Card Max Erase Count"}')" \
+        "$(jq -n --arg uid "$flash_id" '{friendly_name: "SD Card Max Erase Count", unique_id: ($uid + "-max_erase"), flash_id: $uid}')" \
         "cycles" "" "mdi:counter"
 
     update_sensor "sensor.sdmon_power_up_count" "$power_up" \
-        "$(jq -n '{friendly_name: "SD Card Power-On Count"}')" \
+        "$(jq -n --arg uid "$flash_id" '{friendly_name: "SD Card Power-On Count", unique_id: ($uid + "-power_up"), flash_id: $uid}')" \
         "cycles" "" "mdi:power"
 
     update_sensor "sensor.sdmon_abnormal_poweroff_count" "$abnormal_poweroff" \
-        "$(jq -n '{friendly_name: "SD Card Abnormal Power-Off Count"}')" \
+        "$(jq -n --arg uid "$flash_id" '{friendly_name: "SD Card Abnormal Power-Off Count", unique_id: ($uid + "-abnormal_poweroff"), flash_id: $uid}')" \
         "events" "" "mdi:power-plug-off"
 
     update_sensor "sensor.sdmon_bad_block_count" "$bad_blocks" \
-        "$(jq -n '{friendly_name: "SD Card Bad Block Count"}')" \
+        "$(jq -n --arg uid "$flash_id" '{friendly_name: "SD Card Bad Block Count", unique_id: ($uid + "-bad_blocks"), flash_id: $uid}')" \
         "blocks" "" "mdi:close-circle"
 else
     # SanDisk/WD metrics
@@ -139,11 +158,11 @@ else
     power_on_times=$(echo "$json_data" | jq -r '.powerOnTimes // 0')
 
     update_sensor "sensor.sdmon_manufacture_date" "$manufacture_date" \
-        "$(jq -n '{friendly_name: "SD Card Manufacture Date"}')" \
+        "$(jq -n --arg uid "$flash_id" '{friendly_name: "SD Card Manufacture Date", unique_id: ($uid + "-manufacture_date"), flash_id: $uid}')" \
         "" "" "mdi:calendar"
 
     update_sensor "sensor.sdmon_power_on_count" "$power_on_times" \
-        "$(jq -n '{friendly_name: "SD Card Power-On Count"}')" \
+        "$(jq -n --arg uid "$flash_id" '{friendly_name: "SD Card Power-On Count", unique_id: ($uid + "-power_on"), flash_id: $uid}')" \
         "cycles" "" "mdi:power"
 fi
 
