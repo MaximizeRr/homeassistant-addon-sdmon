@@ -14,10 +14,6 @@ hassio_api: true
 hassio_role: manager
 homeassistant_api: true
 full_access: true
-devices:
-  - /dev/mmcblk0
-privileged:
-  - SYS_RAWIO
 apparmor: false
 map:
   - share:rw
